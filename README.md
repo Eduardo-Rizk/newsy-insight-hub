@@ -60,6 +60,38 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Backend (API)
+
+This repo now includes a minimal Node.js backend that powers the YouTube analysis flow.
+
+- Server entry: `server/index.mjs`
+- Endpoint: `POST /api/analyze` with JSON `{ "url": "<YouTube URL>" }`
+- Uses env vars from `.env`: `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, optional `CORS_ORIGIN`, `OPENAI_SUMMARY_MODEL`, `PPLX_MODEL`.
+
+Run locally (Node 18+):
+
+```sh
+# 1) Ensure your .env has your keys
+#    OPENAI_API_KEY=...
+#    PERPLEXITY_API_KEY=...
+
+# 2) Start the backend in one terminal
+npm run server
+# -> listens on http://localhost:3001
+
+# 3) Start the frontend in a second terminal
+npm run dev
+# -> open http://localhost:8080
+
+# The frontend proxies /api -> http://localhost:3001 in dev.
+```
+
+Notes:
+- Transcripts are fetched via a public transcript endpoint; some videos may not have transcripts available. If none is found, the transcript may be empty.
+- Summaries use OpenAI (model configurable via `OPENAI_SUMMARY_MODEL`, default `gpt-4o-mini`).
+- Related articles use Perplexity (`PPLX_MODEL`, default `sonar-pro`) and return 3–5 links.
+- For production, set `CORS_ORIGIN` to your site origin (e.g. `https://your-domain`).
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/680daabe-9bf5-4c82-a069-f8bf0143eb4b) and click on Share -> Publish.

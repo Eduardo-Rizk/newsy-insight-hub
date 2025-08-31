@@ -5,11 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Play, FileText, ExternalLink, Sparkles } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface AnalysisResult {
   greeting: string;
   summary: string[];
-  transcript: string;
+  summaryText?: string;
+  transcript?: string;
   relatedNews: {
     title: string;
     description: string;
@@ -48,46 +50,38 @@ export const NewsAnalyzer = () => {
     }
 
     setIsLoading(true);
-    
-    // Simulate API call for demo purposes
-    setTimeout(() => {
-      setResult({
-        greeting: "Great! I've analyzed your news video and found some interesting insights. Here's what I discovered:",
-        summary: [
-          "Federal Police investigation reveals deep divisions within Bolsonaro's political movement",
-          "New indictments expose internal conflicts and strategic disagreements among supporters",
-          "Analysis suggests potential long-term impacts on Brazilian right-wing politics",
-          "Expert commentary highlights the significance of recent political developments"
-        ],
-        transcript: `The video discusses the recent Federal Police investigation and its implications for Brazilian politics. The host analyzes how the indictments have created significant divisions within Bolsonaro's political base, with some supporters distancing themselves while others remain loyal.
-
-The discussion covers the strategic implications of these developments, examining how the investigation findings might reshape the political landscape in Brazil. The analysis includes expert opinions on the potential long-term effects on right-wing politics in the country.
-
-Key points covered include the legal ramifications, political strategy considerations, and the broader impact on Brazilian democracy. The host provides context for understanding these developments within the larger framework of current Brazilian political dynamics.`,
-        relatedNews: [
-          {
-            title: "STF Decision Impacts Bolsonaro's Political Future",
-            description: "Supreme Court ruling creates new challenges for former president's political activities and upcoming electoral plans.",
-            link: "https://example.com/stf-bolsonaro-decision"
-          },
-          {
-            title: "Brazilian Right-Wing Coalition Shows Signs of Division",
-            description: "Internal disagreements emerge as key figures distance themselves from controversial positions and strategies.",
-            link: "https://example.com/right-wing-division"
-          },
-          {
-            title: "Federal Police Investigation Continues to Expand",
-            description: "New developments in ongoing investigation reveal additional evidence and potential new targets for prosecution.",
-            link: "https://example.com/federal-police-expansion"
-          }
-        ]
+    try {
+      const base = (import.meta as any).env?.VITE_API_BASE 
+        || (typeof window !== 'undefined' && window.location?.port === '5173' ? 'http://localhost:3001' : '');
+      const resp = await fetch(`${base}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
       });
+      // Handle possible empty body (e.g., 404 with no JSON)
+      let data: any = null;
+      const ct = resp.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        data = await resp.json();
+      } else {
+        const text = await resp.text();
+        try { data = JSON.parse(text); } catch { data = { error: text || null }; }
+      }
+      if (!resp.ok) throw new Error(data?.error || `Request failed: ${resp.status}`);
+      const payload: AnalysisResult = {
+        greeting: data.greeting,
+        summary: data.summary,
+        summaryText: data.summaryText || data.summary_text || '',
+        transcript: data.transcript,
+        relatedNews: data.relatedNews || [],
+      };
+      setResult(payload);
+      toast({ title: 'Analysis Complete', description: 'Your video has been successfully analyzed!' });
+    } catch (e: any) {
+      toast({ title: 'Analysis Failed', description: e?.message || 'Unexpected error', variant: 'destructive' });
+    } finally {
       setIsLoading(false);
-      toast({
-        title: "Analysis Complete",
-        description: "Your video has been successfully analyzed!",
-      });
-    }, 3000);
+    }
   };
 
   return (
@@ -195,19 +189,23 @@ Key points covered include the legal ramifications, political strategy considera
               </CardContent>
             </Card>
 
-            {/* Transcript */}
-            <Card className="shadow-card">
+            {/* Analytical Summary */}
+            <Card className="shadow-card border-0 bg-gradient-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-news-primary" />
-                  Complete Transcript
+                  Analytical Summary
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-gray max-w-none">
-                  <p className="text-foreground leading-relaxed whitespace-pre-line">
-                    {result.transcript}
-                  </p>
+                <div className="prose prose-gray max-w-none text-base md:text-lg text-foreground leading-relaxed space-y-4">
+                  {(result.summaryText || (result.summary?.length ? result.summary.join(" ") : ""))
+                    .split(/\n\n+/)
+                    .filter(Boolean)
+                    .slice(0, 10)
+                    .map((p, i) => (
+                      <p key={i}>{p.trim()}</p>
+                    ))}
                 </div>
               </CardContent>
             </Card>
@@ -241,6 +239,32 @@ Key points covered include the legal ramifications, political strategy considera
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Full Transcript (collapsible) */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-news-primary" />
+                  Transcrição Completa
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="transcript">
+                    <AccordionTrigger className="px-4 rounded-md bg-secondary/30 hover:bg-secondary/50">
+                      {result.transcript ? 'Clique para abrir a transcrição' : 'Transcrição indisponível'}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="prose prose-gray max-w-none">
+                        <p className="text-foreground leading-relaxed whitespace-pre-line">
+                          {result.transcript || ''}
+                        </p>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </CardContent>
             </Card>
           </div>
