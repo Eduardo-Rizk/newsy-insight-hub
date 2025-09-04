@@ -1,105 +1,73 @@
-# Welcome to your Lovable project
+# Newsy Insight Hub
 
-## Project info
+Aplicação que analisa vídeos de notícias do YouTube, gera um resumo em bullets, um resumo analítico mais profundo e sugere matérias relacionadas.
 
-**URL**: https://lovable.dev/projects/680daabe-9bf5-4c82-a069-f8bf0143eb4b
+Deploy de produção: https://newsy-insight-hub.vercel.app/
 
-## How can I edit this code?
+## Tecnologias
+- Vite + React + TypeScript
+- Tailwind CSS + shadcn-ui
+- Funções Serverless na Vercel (rotas `/api/*`)
 
-There are several ways of editing your application.
+## Como funciona
+- O frontend envia `POST /api/analyze` com `{ "url": "<URL do YouTube>" }`.
+- A API extrai o ID do vídeo, busca metadados via oEmbed e tenta obter a transcrição pública via `youtubetranscript.com`.
+  - Nem todo vídeo possui transcrição; quando indisponível, o app retorna um resumo de fallback baseado no pouco texto disponível.
+- Se houver chave `OPENAI_API_KEY`, a API chama o endpoint de Chat Completions da OpenAI para produzir:
+  - `greeting`: uma saudação amigável de 1 frase.
+  - `summary`: 3–6 bullets concisos (em pt‑BR quando apropriado).
+  - `summary_text`: um texto analítico de ~300–900 palavras, em parágrafos.
+- Se houver `PERPLEXITY_API_KEY`, a API consulta a Perplexity para trazer 3–5 notícias relacionadas confiáveis e recentes (tenta parsear o JSON retornado, com fallback para lista vazia se necessário).
+- O frontend renderiza a saudação, bullets, o texto analítico, a transcrição (colapsável) e os links das matérias relacionadas.
 
-**Use Lovable**
+## Endpoints (Vercel Functions)
+- `POST /api/analyze` → body `{ url: string }` retorna:
+  - `greeting: string`
+  - `summary: string[]`
+  - `summaryText: string`
+  - `transcript: string`
+  - `relatedNews: { title, description, link }[]`
+  - `meta: { title, channel, videoId }`
+- `GET /api/health` → `{ ok: true }`
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/680daabe-9bf5-4c82-a069-f8bf0143eb4b) and start prompting.
+Código das funções:
+- `api/analyze.ts`
+- `api/health.ts`
 
-Changes made via Lovable will be committed automatically to this repo.
+## Variáveis de ambiente
+- `OPENAI_API_KEY` (obrigatória para resumos “inteligentes”; sem ela, usa fallback)
+- `PERPLEXITY_API_KEY` (opcional, ativa “Related News”)
+- `OPENAI_SUMMARY_MODEL` (opcional; default `gpt-4o-mini`)
+- `PPLX_MODEL` (opcional; default `sonar-pro`)
 
-**Use your preferred IDE**
+Defina-as no painel do projeto da Vercel (Preview e Production).
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Desenvolvimento local
+Requisitos: Node.js 18+ e npm.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Opção A: usar Vercel Dev (recomendado para testar /api)
+npm i -g vercel
+vercel dev
+
+# Em paralelo, rode o front com Vite (se preferir hot reload)
 npm run dev
+
+# Dica: para o front chamar a API do Vercel Dev (http://localhost:3000),
+# crie .env.local com: VITE_API_BASE=http://localhost:3000
 ```
 
-**Edit a file directly in GitHub**
+Obs.: O repositório ainda contém `server/index.mjs` (um servidor Node simples) que não é usado na Vercel; pode ser útil apenas para experiências locais.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Build e Deploy (Vercel)
+- A build do front é `npm run build` (resultado em `dist/`).
+- A Vercel publica `dist/` como estático e expõe as funções em `/api/*`.
+- Arquivo `vercel.json` já configura rewrites de SPA e preserva `/api/*`.
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## Backend (API)
-
-This repo now includes a minimal Node.js backend that powers the YouTube analysis flow.
-
-- Server entry: `server/index.mjs`
-- Endpoint: `POST /api/analyze` with JSON `{ "url": "<YouTube URL>" }`
-- Uses env vars from `.env`: `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, optional `CORS_ORIGIN`, `OPENAI_SUMMARY_MODEL`, `PPLX_MODEL`.
-
-Run locally (Node 18+):
-
-```sh
-# 1) Ensure your .env has your keys
-#    OPENAI_API_KEY=...
-#    PERPLEXITY_API_KEY=...
-
-# 2) Start the backend in one terminal
-npm run server
-# -> listens on http://localhost:3001
-
-# 3) Start the frontend in a second terminal
-npm run dev
-# -> open http://localhost:8080
-
-# The frontend proxies /api -> http://localhost:3001 in dev.
-```
-
-Notes:
-- Transcripts are fetched via a public transcript endpoint; some videos may not have transcripts available. If none is found, the transcript may be empty.
-- Summaries use OpenAI (model configurable via `OPENAI_SUMMARY_MODEL`, default `gpt-4o-mini`).
-- Related articles use Perplexity (`PPLX_MODEL`, default `sonar-pro`) and return 3–5 links.
-- For production, set `CORS_ORIGIN` to your site origin (e.g. `https://your-domain`).
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/680daabe-9bf5-4c82-a069-f8bf0143eb4b) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Passos:
+1) Conecte o repositório no dashboard da Vercel (New Project → Import).
+2) Configure as variáveis de ambiente (Preview/Production).
+3) Deploy: a cada push, a Vercel cria um Preview. Promova para Production quando desejar.
+4) Teste `GET /api/health` e o app na raiz.
